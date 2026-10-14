@@ -23,3 +23,7 @@ _Avoid_: Current user, logged-in user, account
 **Like**:
 Me's endorsement of a Post. A Post exposes how many Likes it has and whether Me has liked it.
 _Avoid_: Favorite, heart, upvote
+
+**Pending Post**:
+A Post Me has written that the server has not yet confirmed. It sits at the top of the Feed, either sending or failed, and cannot be liked. Once confirmed it becomes an ordinary Post ordered by the server's timestamp.
+_Avoid_: Draft, unsent post, optimistic post
