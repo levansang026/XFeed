@@ -20,6 +20,7 @@ struct PostRowView: View {
                 LikeButton(isLiked: post.isLikedByMe, count: post.likeCount, action: onLike)
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .accessibilityElement(children: .contain)

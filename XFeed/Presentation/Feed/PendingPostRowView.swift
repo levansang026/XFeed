@@ -22,6 +22,7 @@ struct PendingPostRowView: View {
             .blur(radius: pending.status == .sending ? 2 : 0)
             .overlay { if pending.status == .sending { ProgressView() } }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
         .opacity(pending.status == .sending ? 0.7 : 1)
