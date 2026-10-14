@@ -12,3 +12,8 @@ enum TestData {
              likeCount: likeCount, isLikedByMe: isLiked)
     }
 }
+
+extension TestData {
+    static func posts(_ ids: ClosedRange<Int>) -> [Post] { ids.map { post(id: "p\($0)") } }
+    static func page(_ ids: ClosedRange<Int>, next: String?) -> FeedPage { FeedPage(posts: posts(ids), nextCursor: next) }
+}

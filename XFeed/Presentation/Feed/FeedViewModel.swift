@@ -1,0 +1,241 @@
+import Foundation
+import Observation
+
+enum LoadPhase: Equatable {
+    case idle, loading, loaded, failed(FeedError)
+}
+
+enum LoadMoreState: Equatable {
+    case idle, loading, failed, ended
+}
+
+struct PendingPost: Identifiable, Equatable {
+    enum Status: Equatable { case sending, failed(FeedError) }
+
+    let id: UUID
+    let text: String
+    let imageURL: URL?
+    var status: Status
+}
+
+@MainActor
+@Observable
+final class FeedViewModel {
+    private(set) var posts: [Post] = []
+    private(set) var pendingPosts: [PendingPost] = []
+    private(set) var phase: LoadPhase = .idle
+    private(set) var loadMore: LoadMoreState = .idle
+    private(set) var isRefreshing = false
+    private(set) var errorMessage: String?
+
+    private struct LikeSync {
+        var confirmed: Post
+        var desired: Bool
+        var tapCount = 0
+    }
+
+    private static let prefetchDistance = 3
+
+    @ObservationIgnored private let loadFeed: LoadFeed
+    @ObservationIgnored private let createPost: CreatePost
+    @ObservationIgnored private let setLike: SetLike
+    @ObservationIgnored private let likeDebounce: Duration
+    @ObservationIgnored private var nextCursor: String?
+    @ObservationIgnored private var generation = 0
+    @ObservationIgnored private var likeSyncs: [String: LikeSync] = [:]
+    @ObservationIgnored private var likeTasks: [String: Task<Void, Never>] = [:]
+    @ObservationIgnored private var createTasks: [UUID: Task<Void, Never>] = [:]
+
+    init(loadFeed: LoadFeed, createPost: CreatePost, setLike: SetLike, likeDebounce: Duration = .milliseconds(300)) {
+        self.loadFeed = loadFeed
+        self.createPost = createPost
+        self.setLike = setLike
+        self.likeDebounce = likeDebounce
+    }
+
+    func dismissError() { errorMessage = nil }
+
+    // MARK: Loading
+
+    func loadInitial() async {
+        guard phase == .idle || isFailed else { return }
+        await load(isUserRefresh: false)
+    }
+
+    func refresh() async {
+        await load(isUserRefresh: true)
+    }
+
+    func loadMoreIfNeeded(currentPostID: String) async {
+        guard phase == .loaded, loadMore == .idle,
+              let index = posts.firstIndex(where: { $0.id == currentPostID }),
+              index >= posts.count - Self.prefetchDistance else { return }
+        await loadNextPage()
+    }
+
+    func retryLoadMore() async {
+        guard loadMore == .failed else { return }
+        await loadNextPage()
+    }
+
+    private var isFailed: Bool {
+        if case .failed = phase { return true }
+        return false
+    }
+
+    private func load(isUserRefresh: Bool) async {
+        guard !isRefreshing else { return }
+        isRefreshing = true
+        generation += 1
+        let token = generation
+        if posts.isEmpty { phase = .loading }
+        defer { isRefreshing = false }
+        do {
+            let page = try await loadFeed(cursor: nil)
+            guard token == generation else { return }
+            posts = reconcile(page.posts)
+            nextCursor = page.nextCursor
+            loadMore = page.nextCursor == nil ? .ended : .idle
+            phase = .loaded
+        } catch {
+            guard token == generation else { return }
+            if posts.isEmpty {
+                phase = .failed(error as? FeedError ?? .server)
+            } else {
+                phase = .loaded
+                errorMessage = "Couldn't refresh. Try again."
+            }
+        }
+    }
+
+    private func loadNextPage() async {
+        loadMore = .loading
+        let token = generation
+        do {
+            let page = try await loadFeed(cursor: nextCursor)
+            guard token == generation else { return }
+            let known = Set(posts.map(\.id))
+            posts += reconcile(page.posts.filter { !known.contains($0.id) })
+            nextCursor = page.nextCursor
+            loadMore = page.nextCursor == nil ? .ended : .idle
+        } catch {
+            guard token == generation else { return }
+            loadMore = .failed
+        }
+    }
+
+    /// Server data never overwrites a Post whose Like is still syncing; it becomes the new rollback baseline.
+    private func reconcile(_ server: [Post]) -> [Post] {
+        server.map { post in
+            guard var sync = likeSyncs[post.id] else { return post }
+            sync.confirmed = post
+            likeSyncs[post.id] = sync
+            return posts.first { $0.id == post.id } ?? post
+        }
+    }
+
+    // MARK: Likes
+
+    func toggleLike(postID: String) {
+        guard let index = posts.firstIndex(where: { $0.id == postID }) else { return }
+        let before = posts[index]
+        var sync = likeSyncs[postID] ?? LikeSync(confirmed: before, desired: before.isLikedByMe)
+        sync.desired = !before.isLikedByMe
+        sync.tapCount += 1
+        likeSyncs[postID] = sync
+
+        posts[index].isLikedByMe = sync.desired
+        posts[index].likeCount += sync.desired ? 1 : -1
+
+        if likeTasks[postID] == nil {
+            likeTasks[postID] = Task { await runLikeSync(postID: postID) }
+        }
+    }
+
+    func settleLikes() async {
+        while let task = likeTasks.values.first { await task.value }
+    }
+
+    private func runLikeSync(postID: String) async {
+        defer { likeTasks[postID] = nil }
+        while let sync = likeSyncs[postID] {
+            try? await Task.sleep(for: likeDebounce)
+            guard let current = likeSyncs[postID] else { return }
+            if current.tapCount != sync.tapCount { continue }
+            if current.desired == current.confirmed.isLikedByMe {
+                likeSyncs[postID] = nil
+                return
+            }
+            do {
+                let confirmed = try await setLike(postID: postID, liked: current.desired)
+                guard var latest = likeSyncs[postID] else { return }
+                latest.confirmed = confirmed
+                if latest.desired == confirmed.isLikedByMe {
+                    likeSyncs[postID] = nil
+                    replace(confirmed)
+                    return
+                }
+                likeSyncs[postID] = latest
+                showOptimistic(desired: latest.desired, over: confirmed)
+            } catch {
+                let baseline = likeSyncs[postID]?.confirmed
+                likeSyncs[postID] = nil
+                if let baseline { replace(baseline) }
+                errorMessage = "Couldn't update your like. Try again."
+                return
+            }
+        }
+    }
+
+    private func replace(_ post: Post) {
+        guard let index = posts.firstIndex(where: { $0.id == post.id }) else { return }
+        posts[index] = post
+    }
+
+    private func showOptimistic(desired: Bool, over confirmed: Post) {
+        var shown = confirmed
+        shown.isLikedByMe = desired
+        shown.likeCount += desired == confirmed.isLikedByMe ? 0 : (desired ? 1 : -1)
+        replace(shown)
+    }
+
+    // MARK: Creating posts
+
+    func submit(text: String, imageURLString: String?) throws {
+        let input = try CreatePost.validate(text: text, imageURLString: imageURLString)
+        let pending = PendingPost(id: UUID(), text: input.text, imageURL: input.imageURL, status: .sending)
+        pendingPosts.insert(pending, at: 0)
+        send(pending)
+    }
+
+    func retry(pendingID: UUID) {
+        guard let index = pendingPosts.firstIndex(where: { $0.id == pendingID }),
+              pendingPosts[index].status != .sending else { return }
+        pendingPosts[index].status = .sending
+        send(pendingPosts[index])
+    }
+
+    func discard(pendingID: UUID) {
+        pendingPosts.removeAll { $0.id == pendingID }
+    }
+
+    func settleCreates() async {
+        while let task = createTasks.values.first { await task.value }
+    }
+
+    private func send(_ pending: PendingPost) {
+        let id = pending.id
+        createTasks[id] = Task {
+            defer { createTasks[id] = nil }
+            do {
+                let post = try await createPost(
+                    text: pending.text, imageURLString: pending.imageURL?.absoluteString)
+                pendingPosts.removeAll { $0.id == id }
+                if !posts.contains(where: { $0.id == post.id }) { posts.insert(post, at: 0) }
+            } catch {
+                guard let index = pendingPosts.firstIndex(where: { $0.id == id }) else { return }
+                pendingPosts[index].status = .failed(error as? FeedError ?? .server)
+            }
+        }
+    }
+}
