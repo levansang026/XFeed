@@ -1,0 +1,47 @@
+name: XFeed
+options:
+  bundleIdPrefix: com.billle
+  deploymentTarget:
+    iOS: "17.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    DEVELOPMENT_TEAM: ""
+packages:
+  Kingfisher:
+    url: https://github.com/onevcat/Kingfisher.git
+    from: 8.13.0
+targets:
+  XFeed:
+    type: application
+    platform: iOS
+    sources: [XFeed]
+    dependencies:
+      - package: Kingfisher
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.billle.XFeed
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        INFOPLIST_KEY_CFBundleDisplayName: XFeed
+  XFeedTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [XFeedTests]
+    dependencies:
+      - target: XFeed
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.billle.XFeedTests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  XFeed:
+    build:
+      targets:
+        XFeed: all
+        XFeedTests: [test]
+    test:
+      targets: [XFeedTests]
