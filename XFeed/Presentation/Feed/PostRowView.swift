@@ -53,7 +53,7 @@ struct AvatarView: View {
     var body: some View {
         KFImage(url)
             .placeholder { Circle().fill(.quaternary) }
-            .fade(duration: 0.15)
+            .cancelOnDisappear(true)
             .resizable()
             .scaledToFill()
             .frame(width: size, height: size)
@@ -75,7 +75,7 @@ struct PostImageView: View {
                 KFImage(url)
                     .onFailure { _ in failed = true }
                     .placeholder { ProgressView() }
-                    .fade(duration: 0.2)
+                    .cancelOnDisappear(true)
                     .resizable()
                     .scaledToFill()
             }

@@ -10,13 +10,14 @@ enum RelativeTimeFormatter {
         case ..<86_400: return "\(seconds / 3_600)h"
         case ..<(7 * 86_400): return "\(seconds / 86_400)d"
         default:
-            let sameYear = calendar.component(.year, from: date) == calendar.component(.year, from: now)
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "en_US_POSIX")
-            formatter.calendar = calendar
-            formatter.timeZone = calendar.timeZone
-            formatter.dateFormat = sameYear ? "MMM d" : "MMM d, yyyy"
-            return formatter.string(from: date)
+            let parts = calendar.dateComponents([.year, .month, .day], from: date)
+            let month = months[(parts.month ?? 1) - 1]
+            let day = parts.day ?? 1
+            let sameYear = parts.year == calendar.component(.year, from: now)
+            return sameYear ? "\(month) \(day)" : "\(month) \(day), \(parts.year ?? 0)"
         }
     }
+
+    /// X shows English abbreviations, and avoiding `DateFormatter` keeps per-row rendering cheap.
+    private static let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 }
