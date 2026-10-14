@@ -8,20 +8,26 @@
 
 /* Begin PBXBuildFile section */
 		0088C4C105C3A1C756DC7519 /* DTOs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DC14F34AC61E622DBB61B73 /* DTOs.swift */; };
+		013610D96B887C5147262D6A /* PendingPostRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EF31D6DA8795F24D5878347 /* PendingPostRowView.swift */; };
 		057DFCFE0B4FBFAA9FC6031B /* seed_posts.json in Resources */ = {isa = PBXBuildFile; fileRef = 2D386ADA40184345386265E8 /* seed_posts.json */; };
 		092D25B28232A49FD3A251E7 /* FeedViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C1D86B2D993DF8794978AC8 /* FeedViewModelTests.swift */; };
 		14674F9D2EFBCCFC71DE954B /* DevPanelViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84E0A0BF4F8ECCBC07A531D6 /* DevPanelViewModel.swift */; };
+		25B130848F47E864022F7718 /* PostRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 86FB0128C6F73B4BD2F54E04 /* PostRowView.swift */; };
 		36681BCE4C317D37D135F5E0 /* MockFeedAPIClientTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2234D4E38FF898F9531AAC09 /* MockFeedAPIClientTests.swift */; };
 		482B0FA67C6B31B1F6742558 /* ComposerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73512E41C2FB0CEDD81569C1 /* ComposerViewModel.swift */; };
+		65177237CCEE8F65300CF0DA /* RelativeTimeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACFBC7AD3A59D9FD85CBF3B2 /* RelativeTimeFormatter.swift */; };
 		72E590E4C2318E03EA544A29 /* FakeFeedAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = E406B59BD5AB4EA98FC868EC /* FakeFeedAPIClient.swift */; };
 		78E445FFB279F34EF5C110AA /* ComposerViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44F0055785D91516BDDB0FC2 /* ComposerViewModelTests.swift */; };
 		7EF91FB19BA6A239250252C2 /* SeedData.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7CEAC595A1B952CCB1187DA /* SeedData.swift */; };
 		84415F2BB58B9B334E1366FB /* UseCases.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F1735135AF216E81ACEEAB2 /* UseCases.swift */; };
 		9636B2C31E1166A3336C4C0F /* FakeFeedRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 278DB51085337745E4F3E214 /* FakeFeedRepository.swift */; };
 		99FEC8483F6236977DEC59B2 /* TestData.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1B7D6E2A3E85569B820D976 /* TestData.swift */; };
+		9FD731CC27BAC3F81DED9719 /* ComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5A1AE6A4341838C3C69559 /* ComposerView.swift */; };
 		A104B948573E86535643E95A /* Kingfisher in Frameworks */ = {isa = PBXBuildFile; productRef = C0C796011CC025BAFA391E9D /* Kingfisher */; };
+		AA0AC78A4CA82952F6BF2DFE /* DevPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC2218B016232B0F26CCAC40 /* DevPanelView.swift */; };
 		B631F04C0173EA9919690BC2 /* XFeedApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21BECB939FC6B42BE9AFFEAA /* XFeedApp.swift */; };
 		B9061DBCC5D4E24877E7F3C5 /* DevPanelViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58FC33046FCDF216538FBD08 /* DevPanelViewModelTests.swift */; };
+		C44539A42A1C7CF80B9FCF59 /* AppContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 254A602406331120D77F8E00 /* AppContainer.swift */; };
 		C5BEB4A9EB7C89C9AA7A75FF /* MockControlling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 268391E2F97D420786C9307E /* MockControlling.swift */; };
 		C6203B155EE1B9DC388354BA /* FeedViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48EC028021136329E220E569 /* FeedViewModel.swift */; };
 		C6B91FDCB22689032DCCC64C /* Entities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04B7B417419F929983F2DB0E /* Entities.swift */; };
@@ -29,7 +35,9 @@
 		D1B1A00AB223EAA6724A4F9B /* MockFeedAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 749AC44769B5B60AA500C979 /* MockFeedAPIClient.swift */; };
 		D1F3D2504D45895436092ED8 /* FeedRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD1BB38093B4A44902DEF0EC /* FeedRepository.swift */; };
 		D393AF7B0BFEE4EA7CA3A29B /* FeedRepositoryImpl.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4F8187559982A71265DA981 /* FeedRepositoryImpl.swift */; };
+		D8BB2962474F207B591F8FD8 /* FeedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7F647A77B5E50557631A05A /* FeedView.swift */; };
 		E5262FA2CFA96D80285FB5C4 /* FeedRepositoryImplTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5D08D0299C72D3E9A499259 /* FeedRepositoryImplTests.swift */; };
+		F890DBE7AA0C7389D3267CAD /* RelativeTimeFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 976C34D26C87098B093649E8 /* RelativeTimeFormatterTests.swift */; };
 		F9529738D8CDD831767EA030 /* FeedAPIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A078F7FF9271D09D7F4BEFCA /* FeedAPIClient.swift */; };
 /* End PBXBuildFile section */
 
@@ -50,23 +58,31 @@
 		1DC14F34AC61E622DBB61B73 /* DTOs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DTOs.swift; sourceTree = "<group>"; };
 		21BECB939FC6B42BE9AFFEAA /* XFeedApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XFeedApp.swift; sourceTree = "<group>"; };
 		2234D4E38FF898F9531AAC09 /* MockFeedAPIClientTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockFeedAPIClientTests.swift; sourceTree = "<group>"; };
+		254A602406331120D77F8E00 /* AppContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContainer.swift; sourceTree = "<group>"; };
 		268391E2F97D420786C9307E /* MockControlling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockControlling.swift; sourceTree = "<group>"; };
 		278DB51085337745E4F3E214 /* FakeFeedRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeFeedRepository.swift; sourceTree = "<group>"; };
 		2D386ADA40184345386265E8 /* seed_posts.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = seed_posts.json; sourceTree = "<group>"; };
 		44F0055785D91516BDDB0FC2 /* ComposerViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerViewModelTests.swift; sourceTree = "<group>"; };
 		48EC028021136329E220E569 /* FeedViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedViewModel.swift; sourceTree = "<group>"; };
 		58FC33046FCDF216538FBD08 /* DevPanelViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevPanelViewModelTests.swift; sourceTree = "<group>"; };
+		5E5A1AE6A4341838C3C69559 /* ComposerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerView.swift; sourceTree = "<group>"; };
+		6EF31D6DA8795F24D5878347 /* PendingPostRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PendingPostRowView.swift; sourceTree = "<group>"; };
 		73512E41C2FB0CEDD81569C1 /* ComposerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerViewModel.swift; sourceTree = "<group>"; };
 		749AC44769B5B60AA500C979 /* MockFeedAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MockFeedAPIClient.swift; sourceTree = "<group>"; };
 		84E0A0BF4F8ECCBC07A531D6 /* DevPanelViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevPanelViewModel.swift; sourceTree = "<group>"; };
+		86FB0128C6F73B4BD2F54E04 /* PostRowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PostRowView.swift; sourceTree = "<group>"; };
 		8F1735135AF216E81ACEEAB2 /* UseCases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UseCases.swift; sourceTree = "<group>"; };
+		976C34D26C87098B093649E8 /* RelativeTimeFormatterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeFormatterTests.swift; sourceTree = "<group>"; };
 		9C1D86B2D993DF8794978AC8 /* FeedViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedViewModelTests.swift; sourceTree = "<group>"; };
 		A078F7FF9271D09D7F4BEFCA /* FeedAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedAPIClient.swift; sourceTree = "<group>"; };
+		ACFBC7AD3A59D9FD85CBF3B2 /* RelativeTimeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RelativeTimeFormatter.swift; sourceTree = "<group>"; };
 		B4F8187559982A71265DA981 /* FeedRepositoryImpl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedRepositoryImpl.swift; sourceTree = "<group>"; };
+		C7F647A77B5E50557631A05A /* FeedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedView.swift; sourceTree = "<group>"; };
 		CD1BB38093B4A44902DEF0EC /* FeedRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedRepository.swift; sourceTree = "<group>"; };
 		E406B59BD5AB4EA98FC868EC /* FakeFeedAPIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FakeFeedAPIClient.swift; sourceTree = "<group>"; };
 		E5E486A16D191D124ADD57DF /* CreatePostUseCaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CreatePostUseCaseTests.swift; sourceTree = "<group>"; };
 		E7CEAC595A1B952CCB1187DA /* SeedData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeedData.swift; sourceTree = "<group>"; };
+		EC2218B016232B0F26CCAC40 /* DevPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DevPanelView.swift; sourceTree = "<group>"; };
 		F1B7D6E2A3E85569B820D976 /* TestData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestData.swift; sourceTree = "<group>"; };
 		F5D08D0299C72D3E9A499259 /* FeedRepositoryImplTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FeedRepositoryImplTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -105,6 +121,7 @@
 		4042174DF7C372DCC222A6D4 /* Presentation */ = {
 			isa = PBXGroup;
 			children = (
+				ACFBC7AD3A59D9FD85CBF3B2 /* RelativeTimeFormatter.swift */,
 				5B81DA43893A39323553D525 /* Composer */,
 				BFB4714D75DCDDF9613D8D8B /* DevPanel */,
 				49882C459B1576F37E460500 /* Feed */,
@@ -115,7 +132,10 @@
 		49882C459B1576F37E460500 /* Feed */ = {
 			isa = PBXGroup;
 			children = (
+				C7F647A77B5E50557631A05A /* FeedView.swift */,
 				48EC028021136329E220E569 /* FeedViewModel.swift */,
+				6EF31D6DA8795F24D5878347 /* PendingPostRowView.swift */,
+				86FB0128C6F73B4BD2F54E04 /* PostRowView.swift */,
 			);
 			path = Feed;
 			sourceTree = "<group>";
@@ -123,6 +143,7 @@
 		5B81DA43893A39323553D525 /* Composer */ = {
 			isa = PBXGroup;
 			children = (
+				5E5A1AE6A4341838C3C69559 /* ComposerView.swift */,
 				73512E41C2FB0CEDD81569C1 /* ComposerViewModel.swift */,
 			);
 			path = Composer;
@@ -137,6 +158,7 @@
 				F5D08D0299C72D3E9A499259 /* FeedRepositoryImplTests.swift */,
 				9C1D86B2D993DF8794978AC8 /* FeedViewModelTests.swift */,
 				2234D4E38FF898F9531AAC09 /* MockFeedAPIClientTests.swift */,
+				976C34D26C87098B093649E8 /* RelativeTimeFormatterTests.swift */,
 				1E57680C80329DE281B8E0B6 /* Support */,
 			);
 			path = XFeedTests;
@@ -174,6 +196,7 @@
 		BFB4714D75DCDDF9613D8D8B /* DevPanel */ = {
 			isa = PBXGroup;
 			children = (
+				EC2218B016232B0F26CCAC40 /* DevPanelView.swift */,
 				84E0A0BF4F8ECCBC07A531D6 /* DevPanelViewModel.swift */,
 			);
 			path = DevPanel;
@@ -182,6 +205,7 @@
 		D6465B1BBB088251EFA628BD /* App */ = {
 			isa = PBXGroup;
 			children = (
+				254A602406331120D77F8E00 /* AppContainer.swift */,
 				21BECB939FC6B42BE9AFFEAA /* XFeedApp.swift */,
 			);
 			path = App;
@@ -323,6 +347,7 @@
 				E5262FA2CFA96D80285FB5C4 /* FeedRepositoryImplTests.swift in Sources */,
 				092D25B28232A49FD3A251E7 /* FeedViewModelTests.swift in Sources */,
 				36681BCE4C317D37D135F5E0 /* MockFeedAPIClientTests.swift in Sources */,
+				F890DBE7AA0C7389D3267CAD /* RelativeTimeFormatterTests.swift in Sources */,
 				99FEC8483F6236977DEC59B2 /* TestData.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -331,16 +356,23 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C44539A42A1C7CF80B9FCF59 /* AppContainer.swift in Sources */,
+				9FD731CC27BAC3F81DED9719 /* ComposerView.swift in Sources */,
 				482B0FA67C6B31B1F6742558 /* ComposerViewModel.swift in Sources */,
 				0088C4C105C3A1C756DC7519 /* DTOs.swift in Sources */,
+				AA0AC78A4CA82952F6BF2DFE /* DevPanelView.swift in Sources */,
 				14674F9D2EFBCCFC71DE954B /* DevPanelViewModel.swift in Sources */,
 				C6B91FDCB22689032DCCC64C /* Entities.swift in Sources */,
 				F9529738D8CDD831767EA030 /* FeedAPIClient.swift in Sources */,
 				D1F3D2504D45895436092ED8 /* FeedRepository.swift in Sources */,
 				D393AF7B0BFEE4EA7CA3A29B /* FeedRepositoryImpl.swift in Sources */,
+				D8BB2962474F207B591F8FD8 /* FeedView.swift in Sources */,
 				C6203B155EE1B9DC388354BA /* FeedViewModel.swift in Sources */,
 				C5BEB4A9EB7C89C9AA7A75FF /* MockControlling.swift in Sources */,
 				D1B1A00AB223EAA6724A4F9B /* MockFeedAPIClient.swift in Sources */,
+				013610D96B887C5147262D6A /* PendingPostRowView.swift in Sources */,
+				25B130848F47E864022F7718 /* PostRowView.swift in Sources */,
+				65177237CCEE8F65300CF0DA /* RelativeTimeFormatter.swift in Sources */,
 				7EF91FB19BA6A239250252C2 /* SeedData.swift in Sources */,
 				84415F2BB58B9B334E1366FB /* UseCases.swift in Sources */,
 				B631F04C0173EA9919690BC2 /* XFeedApp.swift in Sources */,
