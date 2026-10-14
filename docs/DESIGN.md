@@ -15,7 +15,7 @@ iOS 17+, iPhone, portrait, light and dark. SwiftUI, Kingfisher (SPM), Swift Test
 - DTOs and mappers. A future `URLSessionFeedAPIClient` is a drop-in replacement chosen in the composition root.
 
 ## Presentation
-- `FeedViewModel` (`@Observable @MainActor`): owns the list including Pending Posts, pagination (load more when any of the last 3 rows appears), refresh (cancels in-flight load-more, merges so in-flight likes keep local state), de-duplication by id, per-Post like debounce and rollback.
+- `FeedViewModel` (`@Observable @MainActor`): owns the list including Pending Posts, pagination (load more when any of the last 3 rows appears), refresh (discards any in-flight load-more by epoch, blocks new load-more while refreshing, and keeps posts created or likes confirmed after the refresh began, so stale refresh data never undoes them), de-duplication by id, per-Post like debounce and rollback.
 - `ComposerViewModel`, `DevPanelViewModel` separate. Dev panel opens with three taps on the top-left avatar, in all builds.
 - Views take value-type row models and closures. Relative time is X style ("now", "5m", "3h", "2d", "Oct 4"), computed in Presentation. Images via Kingfisher `KFImage`.
 

@@ -15,6 +15,13 @@ struct SeedData: Decodable, Sendable {
     let authors: [AuthorDTO]
     let posts: [SeedPost]
 
+    static let meID = "me"
+
+    /// The fixed current user; falls back to a bare author if the seed file omits it.
+    var me: AuthorDTO {
+        authors.first { $0.id == Self.meID } ?? AuthorDTO(id: Self.meID, name: "Me", handle: "me", avatarURL: nil)
+    }
+
     static func load(from bundle: Bundle) throws -> SeedData {
         guard let url = bundle.url(forResource: "seed_posts", withExtension: "json") else {
             throw FeedAPIError.notFound

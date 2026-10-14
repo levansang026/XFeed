@@ -27,4 +27,7 @@ enum FeedError: Error, Equatable, Sendable {
     case offline
     case server
     case notFound
+
+    /// Anything that isn't already a `FeedError` is treated as a server failure.
+    init(_ error: Error) { self = error as? FeedError ?? .server }
 }

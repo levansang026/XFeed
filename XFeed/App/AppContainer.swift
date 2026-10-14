@@ -23,10 +23,9 @@ struct AppContainer {
             loadFeed: LoadFeed(repository: repository),
             createPost: CreatePost(repository: repository),
             setLike: SetLike(repository: repository))
-        let meDTO = seed.authors.first { $0.id == "me" }
+        let meDTO = seed.me
         let me = Author(
-            id: "me", name: meDTO?.name ?? "Me", handle: meDTO?.handle ?? "me",
-            avatarURL: meDTO?.avatarURL.flatMap(URL.init(string:)))
+            id: meDTO.id, name: meDTO.name, handle: meDTO.handle, avatarURL: meDTO.avatarURL.flatMap(URL.init(string:)))
         return AppContainer(feed: feed, me: me, mockController: controller)
     }
 }

@@ -128,6 +128,104 @@ import Foundation
         #expect(sut.loadMore == .idle)
     }
 
+    // MARK: Refresh racing with other operations
+
+    @Test func failedRefreshDoesNotLeaveAnInFlightLoadMoreSpinning() async {
+        let sut = await loadedSUT()
+        let slowPage = Suspended<FeedPage>()
+        repo.onFeed = { cursor, _ in
+            if cursor == "c1" { return try await slowPage.wait() }
+            throw FeedError.offline
+        }
+
+        async let loadMore: Void = sut.loadMoreIfNeeded(currentPostID: "p10")
+        await waitUntil { sut.loadMore == .loading }
+        await sut.refresh()
+        #expect(sut.loadMore == .idle)
+        slowPage.complete(.success(TestData.page(11...12, next: nil)))
+        await loadMore
+
+        #expect(sut.loadMore == .idle)
+        #expect(sut.posts.count == 10)
+    }
+
+    @Test func loadMoreIsIgnoredWhileRefreshing() async {
+        let sut = await loadedSUT()
+        let refreshPage = Suspended<FeedPage>()
+        repo.onFeed = { _, _ in try await refreshPage.wait() }
+
+        async let refresh: Void = sut.refresh()
+        await waitUntil { sut.isRefreshing }
+        await sut.loadMoreIfNeeded(currentPostID: "p10")
+        #expect(repo.feedCursors == [nil, nil])
+
+        refreshPage.complete(.success(TestData.page(100...101, next: "c9")))
+        await refresh
+        #expect(sut.posts.map(\.id) == ["p100", "p101"])
+    }
+
+    @Test func postConfirmedDuringARefreshSurvivesIt() async throws {
+        let sut = await loadedSUT()
+        let create = Suspended<Post>()
+        let refreshPage = Suspended<FeedPage>()
+        repo.onCreate = { _, _ in try await create.wait() }
+        repo.onFeed = { _, _ in try await refreshPage.wait() }
+        try sut.submit(text: "hi", imageURLString: nil)
+
+        async let refresh: Void = sut.refresh()
+        await waitUntil { sut.isRefreshing }
+        create.complete(.success(TestData.post(id: "srv-1", text: "hi")))
+        await sut.settleCreates()
+        refreshPage.complete(.success(TestData.page(1...10, next: "c1")))   // fetched before the create
+        await refresh
+
+        #expect(sut.posts.first?.id == "srv-1")
+        #expect(sut.posts.count == 11)
+    }
+
+    @Test func likeConfirmedDuringARefreshIsNotRevertedByStaleRefreshData() async {
+        let sut = await loadedSUT()
+        let refreshPage = Suspended<FeedPage>()
+        repo.onFeed = { _, _ in try await refreshPage.wait() }
+        repo.onLike = { id, liked in TestData.post(id: id, likeCount: 1, isLiked: liked) }
+
+        async let refresh: Void = sut.refresh()
+        await waitUntil { sut.isRefreshing }
+        sut.toggleLike(postID: "p1")
+        await sut.settleLikes()
+        refreshPage.complete(.success(TestData.page(1...10, next: "c1")))   // p1 still unliked here
+        await refresh
+
+        #expect(sut.posts[0].isLikedByMe && sut.posts[0].likeCount == 1)
+    }
+
+    @Test func staleRefreshDataDoesNotLowerTheRollbackBaseline() async {
+        let sut = await loadedSUT()
+        let firstLike = Suspended<Post>()
+        let secondLike = Suspended<Post>()
+        let refreshPage = Suspended<FeedPage>()
+        nonisolated(unsafe) var calls = 0
+        repo.onLike = { _, _ in
+            calls += 1
+            return try await (calls == 1 ? firstLike : secondLike).wait()
+        }
+
+        sut.toggleLike(postID: "p1")
+        await waitUntil { repo.likeCalls.count == 1 }
+        repo.onFeed = { _, _ in try await refreshPage.wait() }
+        async let refresh: Void = sut.refresh()
+        await waitUntil { sut.isRefreshing }
+        sut.toggleLike(postID: "p1")                       // wants unliked again
+        firstLike.complete(.success(TestData.post(id: "p1", likeCount: 1, isLiked: true)))
+        await waitUntil { repo.likeCalls.count == 2 }
+        refreshPage.complete(.success(TestData.page(1...10, next: "c1")))   // stale: p1 unliked, 0
+        await refresh
+        secondLike.complete(.failure(FeedError.server))
+        await sut.settleLikes()
+
+        #expect(sut.posts[0].isLikedByMe && sut.posts[0].likeCount == 1)
+    }
+
     // MARK: Likes
 
     @Test func likeUpdatesInstantlyThenAdoptsServerValue() async {

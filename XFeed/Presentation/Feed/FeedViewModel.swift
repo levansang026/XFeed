@@ -31,7 +31,7 @@ final class FeedViewModel {
     private struct LikeSync {
         var confirmed: Post
         var desired: Bool
-        var tapCount = 0
+        var revision = 0
     }
 
     private static let prefetchDistance = 3
@@ -41,7 +41,10 @@ final class FeedViewModel {
     @ObservationIgnored private let setLike: SetLike
     @ObservationIgnored private let likeDebounce: Duration
     @ObservationIgnored private var nextCursor: String?
-    @ObservationIgnored private var generation = 0
+    @ObservationIgnored private var loadEpoch = 0
+    /// Server-confirmed Posts that arrived since the current load began; newer than that load's payload.
+    @ObservationIgnored private var confirmedDuringLoad: [String: Post] = [:]
+    @ObservationIgnored private var createdDuringLoad: [Post] = []
     @ObservationIgnored private var likeSyncs: [String: LikeSync] = [:]
     @ObservationIgnored private var likeTasks: [String: Task<Void, Never>] = [:]
     @ObservationIgnored private var createTasks: [UUID: Task<Void, Never>] = [:]
@@ -67,14 +70,14 @@ final class FeedViewModel {
     }
 
     func loadMoreIfNeeded(currentPostID: String) async {
-        guard phase == .loaded, loadMore == .idle,
+        guard phase == .loaded, !isRefreshing, loadMore == .idle,
               let index = posts.firstIndex(where: { $0.id == currentPostID }),
               index >= posts.count - Self.prefetchDistance else { return }
         await loadNextPage()
     }
 
     func retryLoadMore() async {
-        guard loadMore == .failed else { return }
+        guard !isRefreshing, loadMore == .failed else { return }
         await loadNextPage()
     }
 
@@ -86,21 +89,25 @@ final class FeedViewModel {
     private func load(isUserRefresh: Bool) async {
         guard !isRefreshing else { return }
         isRefreshing = true
-        generation += 1
-        let token = generation
+        loadEpoch += 1
+        let token = loadEpoch
+        confirmedDuringLoad = [:]
+        createdDuringLoad = []
+        if loadMore == .loading { loadMore = .idle }   // the in-flight load-more is now stale and discards itself
         if posts.isEmpty { phase = .loading }
         defer { isRefreshing = false }
         do {
             let page = try await loadFeed(cursor: nil)
-            guard token == generation else { return }
-            posts = reconcile(page.posts)
-            nextCursor = page.nextCursor
-            loadMore = page.nextCursor == nil ? .ended : .idle
+            guard token == loadEpoch else { return }
+            let serverIDs = Set(page.posts.map(\.id))
+            let survivors = createdDuringLoad.filter { !serverIDs.contains($0.id) }
+            posts = survivors + reconcile(page.posts)
+            apply(page)
             phase = .loaded
         } catch {
-            guard token == generation else { return }
+            guard token == loadEpoch else { return }
             if posts.isEmpty {
-                phase = .failed(error as? FeedError ?? .server)
+                phase = .failed(FeedError(error))
             } else {
                 phase = .loaded
                 errorMessage = "Couldn't refresh. Try again."
@@ -110,27 +117,36 @@ final class FeedViewModel {
 
     private func loadNextPage() async {
         loadMore = .loading
-        let token = generation
+        let token = loadEpoch
+        confirmedDuringLoad = [:]
         do {
             let page = try await loadFeed(cursor: nextCursor)
-            guard token == generation else { return }
+            guard token == loadEpoch else { return }
             let known = Set(posts.map(\.id))
             posts += reconcile(page.posts.filter { !known.contains($0.id) })
-            nextCursor = page.nextCursor
-            loadMore = page.nextCursor == nil ? .ended : .idle
+            apply(page)
         } catch {
-            guard token == generation else { return }
+            guard token == loadEpoch else { return }
             loadMore = .failed
         }
     }
 
-    /// Server data never overwrites a Post whose Like is still syncing; it becomes the new rollback baseline.
+    private func apply(_ page: FeedPage) {
+        nextCursor = page.nextCursor
+        loadMore = page.nextCursor == nil ? .ended : .idle
+    }
+
+    /// Server data never overwrites a Post whose Like is still syncing, and never overrides a confirmation that
+    /// arrived after the load began. Otherwise it is the newest known server state and the rollback baseline.
     private func reconcile(_ server: [Post]) -> [Post] {
         server.map { post in
-            guard var sync = likeSyncs[post.id] else { return post }
-            sync.confirmed = post
-            likeSyncs[post.id] = sync
-            return posts.first { $0.id == post.id } ?? post
+            let confirmedLater = confirmedDuringLoad[post.id]
+            if var sync = likeSyncs[post.id] {
+                if confirmedLater == nil { sync.confirmed = post }
+                likeSyncs[post.id] = sync
+                return posts.first { $0.id == post.id } ?? confirmedLater ?? post
+            }
+            return confirmedLater ?? post
         }
     }
 
@@ -141,7 +157,7 @@ final class FeedViewModel {
         let before = posts[index]
         var sync = likeSyncs[postID] ?? LikeSync(confirmed: before, desired: before.isLikedByMe)
         sync.desired = !before.isLikedByMe
-        sync.tapCount += 1
+        sync.revision += 1
         likeSyncs[postID] = sync
 
         posts[index].isLikedByMe = sync.desired
@@ -161,7 +177,7 @@ final class FeedViewModel {
         while let sync = likeSyncs[postID] {
             try? await Task.sleep(for: likeDebounce)
             guard let current = likeSyncs[postID] else { return }
-            if current.tapCount != sync.tapCount { continue }
+            if current.revision != sync.revision { continue }
             if current.desired == current.confirmed.isLikedByMe {
                 likeSyncs[postID] = nil
                 return
@@ -170,6 +186,7 @@ final class FeedViewModel {
                 let confirmed = try await setLike(postID: postID, liked: current.desired)
                 guard var latest = likeSyncs[postID] else { return }
                 latest.confirmed = confirmed
+                confirmedDuringLoad[postID] = confirmed
                 if latest.desired == confirmed.isLikedByMe {
                     likeSyncs[postID] = nil
                     replace(confirmed)
@@ -231,10 +248,11 @@ final class FeedViewModel {
                 let post = try await createPost(
                     text: pending.text, imageURLString: pending.imageURL?.absoluteString)
                 pendingPosts.removeAll { $0.id == id }
+                createdDuringLoad.append(post)
                 if !posts.contains(where: { $0.id == post.id }) { posts.insert(post, at: 0) }
             } catch {
                 guard let index = pendingPosts.firstIndex(where: { $0.id == id }) else { return }
-                pendingPosts[index].status = .failed(error as? FeedError ?? .server)
+                pendingPosts[index].status = .failed(FeedError(error))
             }
         }
     }

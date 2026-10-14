@@ -51,9 +51,8 @@ actor MockFeedAPIClient: FeedAPIClient, MockControlling {
 
     func createPost(_ request: CreatePostRequestDTO) async throws -> PostDTO {
         try await simulateNetwork()
-        let me = seed.authors.first { $0.id == "me" } ?? AuthorDTO(id: "me", name: "Me", handle: "me", avatarURL: nil)
         let post = PostDTO(
-            id: "post-\(UUID().uuidString)", author: me, text: request.text, imageURL: request.imageURL,
+            id: "post-\(UUID().uuidString)", author: seed.me, text: request.text, imageURL: request.imageURL,
             createdAt: now(), likeCount: 0, isLikedByMe: false)
         entries.append(Entry(order: nextOrder, post: post))
         nextOrder += 1
