@@ -42,7 +42,8 @@ final class FeedViewModel {
     @ObservationIgnored private let likeDebounce: Duration
     @ObservationIgnored private var nextCursor: String?
     @ObservationIgnored private var loadEpoch = 0
-    /// Only recorded while a load is running (see `isLoading`): server state that is newer than that load's payload.
+    @ObservationIgnored private var loadMoreTask: Task<Void, Never>?
+    /// Only recorded while a refresh is running: server state that is newer than that refresh's payload.
     @ObservationIgnored private var confirmedDuringLoad: [String: Post] = [:]
     @ObservationIgnored private var createdDuringLoad: [Post] = []
     @ObservationIgnored private var likeSyncs: [String: LikeSync] = [:]
@@ -62,11 +63,11 @@ final class FeedViewModel {
 
     func loadInitial() async {
         guard phase == .idle || isFailed else { return }
-        await load(isUserRefresh: false)
+        await runDetached { await $0.load() }
     }
 
     func refresh() async {
-        await load(isUserRefresh: true)
+        await runDetached { await $0.load() }
     }
 
     func loadMoreIfNeeded(currentPostID: String) async {
@@ -81,21 +82,26 @@ final class FeedViewModel {
         await loadNextPage()
     }
 
-    private var isLoading: Bool { isRefreshing || loadMore == .loading }
-
     private var isFailed: Bool {
         if case .failed = phase { return true }
         return false
     }
 
-    private func load(isUserRefresh: Bool) async {
+    /// Loads run in their own task so a SwiftUI caller being cancelled (row scrolled away, refresh gesture ended)
+    /// never turns an ordinary load into a failure.
+    private func runDetached(_ work: @escaping (FeedViewModel) async -> Void) async {
+        await Task { await work(self) }.value
+    }
+
+    /// Only a refresh owns `confirmedDuringLoad` and `createdDuringLoad`. It also cancels any load-more and
+    /// bumps the epoch so that load-more's result, if it still arrives, is ignored: page 1 replaces the list.
+    private func load() async {
         guard !isRefreshing else { return }
         isRefreshing = true
         loadEpoch += 1
-        let token = loadEpoch
-        confirmedDuringLoad = [:]
-        createdDuringLoad = []
-        if loadMore == .loading { loadMore = .idle }   // the in-flight load-more is now stale and discards itself
+        loadMoreTask?.cancel()
+        loadMoreTask = nil
+        if loadMore == .loading { loadMore = .idle }
         if posts.isEmpty { phase = .loading }
         defer {
             isRefreshing = false
@@ -104,10 +110,9 @@ final class FeedViewModel {
         }
         do {
             let page = try await loadFeed(cursor: nil)
-            guard token == loadEpoch else { return }
             let serverIDs = Set(page.posts.map(\.id))
-            // Posts created during this load are missing from the page. Place them by server timestamp, in their
-            // current form (a Like may have been applied since they were created).
+            // Posts created during this refresh are missing from the page. Place them by server timestamp, in
+            // their current form (a Like may have been applied since they were created).
             let survivors = createdDuringLoad
                 .filter { !serverIDs.contains($0.id) }
                 .map { created in posts.first { $0.id == created.id } ?? created }
@@ -117,7 +122,6 @@ final class FeedViewModel {
             apply(page)
             phase = .loaded
         } catch {
-            guard token == loadEpoch else { return }
             if posts.isEmpty {
                 phase = .failed(FeedError(error))
             } else {
@@ -129,17 +133,22 @@ final class FeedViewModel {
 
     private func loadNextPage() async {
         loadMore = .loading
-        let token = loadEpoch
-        // A refresh that starts meanwhile bumps the epoch and owns the bookkeeping from then on.
-        defer { if token == loadEpoch { confirmedDuringLoad = [:] } }
+        let epoch = loadEpoch
+        let task = Task { await fetchNextPage(epoch: epoch) }
+        loadMoreTask = task
+        await task.value
+    }
+
+    private func fetchNextPage(epoch: Int) async {
+        defer { if epoch == loadEpoch { loadMoreTask = nil } }
         do {
             let page = try await loadFeed(cursor: nextCursor)
-            guard token == loadEpoch else { return }
+            guard epoch == loadEpoch else { return }
             let known = Set(posts.map(\.id))
-            posts += reconcile(page.posts.filter { !known.contains($0.id) })
+            posts += page.posts.filter { !known.contains($0.id) }
             apply(page)
         } catch {
-            guard token == loadEpoch else { return }
+            guard epoch == loadEpoch else { return }
             loadMore = .failed
         }
     }
@@ -205,7 +214,7 @@ final class FeedViewModel {
                 let confirmed = try await setLike(postID: postID, liked: current.desired)
                 guard var latest = likeSyncs[postID] else { return }
                 latest.confirmed = confirmed
-                if isLoading { confirmedDuringLoad[postID] = confirmed }
+                if isRefreshing { confirmedDuringLoad[postID] = confirmed }
                 if latest.desired == confirmed.isLikedByMe {
                     likeSyncs[postID] = nil
                     replace(confirmed)
@@ -267,7 +276,7 @@ final class FeedViewModel {
                 let post = try await createPost(
                     text: pending.text, imageURLString: pending.imageURL?.absoluteString)
                 pendingPosts.removeAll { $0.id == id }
-                if isLoading { createdDuringLoad.append(post) }
+                if isRefreshing { createdDuringLoad.append(post) }
                 if !posts.contains(where: { $0.id == post.id }) { Self.insertByServerTime(post, into: &posts) }
             } catch {
                 guard let index = pendingPosts.firstIndex(where: { $0.id == id }) else { return }

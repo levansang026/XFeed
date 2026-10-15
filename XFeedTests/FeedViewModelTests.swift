@@ -128,6 +128,45 @@ import Foundation
         #expect(sut.loadMore == .idle)
     }
 
+    @Test func refreshCancelsTheInFlightLoadMoreAndIgnoresItsResult() async {
+        let sut = await loadedSUT()
+        let slowPage = Suspended<FeedPage>()
+        nonisolated(unsafe) var cancelled = false
+        repo.onFeed = { cursor, _ in
+            guard cursor == "c1" else { return TestData.page(100...101, next: nil) }
+            return try await withTaskCancellationHandler { try await slowPage.wait() } onCancel: { cancelled = true }
+        }
+
+        async let loadMore: Void = sut.loadMoreIfNeeded(currentPostID: "p10")
+        await waitUntil { sut.loadMore == .loading }
+        await sut.refresh()
+        slowPage.complete(.success(TestData.page(11...12, next: nil)))   // arrives anyway; must be ignored
+        await loadMore
+
+        #expect(cancelled)
+        #expect(sut.posts.map(\.id) == ["p100", "p101"])
+        #expect(sut.loadMore == .ended)
+    }
+
+    @Test func scrollingAwayFromTheRowThatTriggeredLoadMoreDoesNotFailTheLoad() async {
+        let sut = await loadedSUT()
+        let slowPage = Suspended<FeedPage>()
+        repo.onFeed = { _, _ in
+            try await withTaskCancellationHandler { try await slowPage.wait() } onCancel: {
+                slowPage.complete(.failure(CancellationError()))
+            }
+        }
+
+        let rowTask = Task { await sut.loadMoreIfNeeded(currentPostID: "p10") }   // like a row's `.task`
+        await waitUntil { sut.loadMore == .loading }
+        rowTask.cancel()                                                          // the row scrolled off-screen
+        slowPage.complete(.success(TestData.page(11...12, next: nil)))
+        await rowTask.value
+
+        #expect(sut.posts.count == 12)
+        #expect(sut.loadMore == .ended)
+    }
+
     // MARK: Refresh racing with other operations
 
     @Test func failedRefreshDoesNotLeaveAnInFlightLoadMoreSpinning() async {
@@ -155,9 +194,9 @@ import Foundation
         repo.onFeed = { _, _ in try await refreshPage.wait() }
 
         async let refresh: Void = sut.refresh()
-        await waitUntil { sut.isRefreshing }
+        await waitUntil { sut.isRefreshing && repo.feedCursors.count == 2 }   // initial load + the refresh request
         await sut.loadMoreIfNeeded(currentPostID: "p10")
-        #expect(repo.feedCursors == [nil, nil])
+        #expect(repo.feedCursors == [nil, nil])   // no cursor "c1" request was made
 
         refreshPage.complete(.success(TestData.page(100...101, next: "c9")))
         await refresh
