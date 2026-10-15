@@ -226,6 +226,64 @@ import Foundation
         #expect(sut.posts[0].isLikedByMe && sut.posts[0].likeCount == 1)
     }
 
+    @Test(arguments: [true, false])
+    func postCreatedAndLikedDuringARefreshKeepsItsLike(likeSettlesBeforeRefreshEnds: Bool) async throws {
+        let sut = await loadedSUT()
+        let create = Suspended<Post>()
+        let refreshPage = Suspended<FeedPage>()
+        repo.onCreate = { _, _ in try await create.wait() }
+        repo.onFeed = { _, _ in try await refreshPage.wait() }
+        repo.onLike = { id, liked in TestData.post(id: id, likeCount: 1, isLiked: liked) }
+        try sut.submit(text: "hi", imageURLString: nil)
+
+        async let refresh: Void = sut.refresh()
+        await waitUntil { sut.isRefreshing }
+        create.complete(.success(TestData.post(id: "srv-1", text: "hi")))
+        await sut.settleCreates()
+        sut.toggleLike(postID: "srv-1")
+        if likeSettlesBeforeRefreshEnds { await sut.settleLikes() }
+        refreshPage.complete(.success(TestData.page(1...10, next: "c1")))   // fetched before the create
+        await refresh
+        await sut.settleLikes()
+
+        #expect(sut.posts.first?.id == "srv-1")
+        #expect(sut.posts.first?.isLikedByMe == true && sut.posts.first?.likeCount == 1)
+    }
+
+    @Test func postsCreatedDuringARefreshKeepNewestFirstOrder() async throws {
+        let sut = await loadedSUT()
+        let first = Suspended<Post>()
+        let second = Suspended<Post>()
+        let refreshPage = Suspended<FeedPage>()
+        repo.onCreate = { text, _ in try await (text == "first" ? first : second).wait() }
+        repo.onFeed = { _, _ in try await refreshPage.wait() }
+        try sut.submit(text: "first", imageURLString: nil)
+        try sut.submit(text: "second", imageURLString: nil)
+
+        async let refresh: Void = sut.refresh()
+        await waitUntil { sut.isRefreshing }
+        first.complete(.success(TestData.post(id: "srv-1", text: "first")))
+        await waitUntil { sut.posts.first?.id == "srv-1" }
+        second.complete(.success(TestData.post(id: "srv-2", text: "second")))
+        await waitUntil { sut.posts.first?.id == "srv-2" }
+        refreshPage.complete(.success(TestData.page(1...10, next: "c1")))
+        await refresh
+
+        #expect(sut.posts.prefix(2).map(\.id) == ["srv-2", "srv-1"])
+    }
+
+    @Test func raceBookkeepingFromEarlierLoadsDoesNotLeakIntoALaterRefresh() async throws {
+        let sut = await loadedSUT()
+        repo.onCreate = { _, _ in TestData.post(id: "srv-1", text: "hi") }
+        try sut.submit(text: "hi", imageURLString: nil)       // confirmed while nothing is loading
+        await sut.settleCreates()
+
+        repo.onFeed = { _, _ in TestData.page(1...10, next: "c1") }   // server does not know srv-1
+        await sut.refresh()
+
+        #expect(sut.posts.map(\.id) == (1...10).map { "p\($0)" })
+    }
+
     // MARK: Likes
 
     @Test func likeUpdatesInstantlyThenAdoptsServerValue() async {

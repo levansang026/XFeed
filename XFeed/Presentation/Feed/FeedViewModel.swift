@@ -34,7 +34,7 @@ final class FeedViewModel {
         var revision = 0
     }
 
-    private static let prefetchDistance = 3
+    private static let prefetchDistance = 5
 
     @ObservationIgnored private let loadFeed: LoadFeed
     @ObservationIgnored private let createPost: CreatePost
@@ -42,7 +42,7 @@ final class FeedViewModel {
     @ObservationIgnored private let likeDebounce: Duration
     @ObservationIgnored private var nextCursor: String?
     @ObservationIgnored private var loadEpoch = 0
-    /// Server-confirmed Posts that arrived since the current load began; newer than that load's payload.
+    /// Only recorded while a load is running (see `isLoading`): server state that is newer than that load's payload.
     @ObservationIgnored private var confirmedDuringLoad: [String: Post] = [:]
     @ObservationIgnored private var createdDuringLoad: [Post] = []
     @ObservationIgnored private var likeSyncs: [String: LikeSync] = [:]
@@ -81,6 +81,8 @@ final class FeedViewModel {
         await loadNextPage()
     }
 
+    private var isLoading: Bool { isRefreshing || loadMore == .loading }
+
     private var isFailed: Bool {
         if case .failed = phase { return true }
         return false
@@ -95,12 +97,20 @@ final class FeedViewModel {
         createdDuringLoad = []
         if loadMore == .loading { loadMore = .idle }   // the in-flight load-more is now stale and discards itself
         if posts.isEmpty { phase = .loading }
-        defer { isRefreshing = false }
+        defer {
+            isRefreshing = false
+            confirmedDuringLoad = [:]
+            createdDuringLoad = []
+        }
         do {
             let page = try await loadFeed(cursor: nil)
             guard token == loadEpoch else { return }
             let serverIDs = Set(page.posts.map(\.id))
-            let survivors = createdDuringLoad.filter { !serverIDs.contains($0.id) }
+            // Posts created during this load are newer than the page; keep them on top, newest first, in their
+            // current form (a Like may have been applied since they were created).
+            let survivors = createdDuringLoad.reversed()
+                .filter { !serverIDs.contains($0.id) }
+                .map { created in posts.first { $0.id == created.id } ?? created }
             posts = survivors + reconcile(page.posts)
             apply(page)
             phase = .loaded
@@ -118,7 +128,8 @@ final class FeedViewModel {
     private func loadNextPage() async {
         loadMore = .loading
         let token = loadEpoch
-        confirmedDuringLoad = [:]
+        // A refresh that starts meanwhile bumps the epoch and owns the bookkeeping from then on.
+        defer { if token == loadEpoch { confirmedDuringLoad = [:] } }
         do {
             let page = try await loadFeed(cursor: nextCursor)
             guard token == loadEpoch else { return }
@@ -186,7 +197,7 @@ final class FeedViewModel {
                 let confirmed = try await setLike(postID: postID, liked: current.desired)
                 guard var latest = likeSyncs[postID] else { return }
                 latest.confirmed = confirmed
-                confirmedDuringLoad[postID] = confirmed
+                if isLoading { confirmedDuringLoad[postID] = confirmed }
                 if latest.desired == confirmed.isLikedByMe {
                     likeSyncs[postID] = nil
                     replace(confirmed)
@@ -248,7 +259,7 @@ final class FeedViewModel {
                 let post = try await createPost(
                     text: pending.text, imageURLString: pending.imageURL?.absoluteString)
                 pendingPosts.removeAll { $0.id == id }
-                createdDuringLoad.append(post)
+                if isLoading { createdDuringLoad.append(post) }
                 if !posts.contains(where: { $0.id == post.id }) { posts.insert(post, at: 0) }
             } catch {
                 guard let index = pendingPosts.firstIndex(where: { $0.id == id }) else { return }
