@@ -272,6 +272,45 @@ import Foundation
         #expect(sut.posts.prefix(2).map(\.id) == ["srv-2", "srv-1"])
     }
 
+    @Test func confirmedPostsAreOrderedByServerTimestampNotByWhenTheyArrive() async throws {
+        let sut = await loadedSUT()
+        let first = Suspended<Post>()
+        let second = Suspended<Post>()
+        repo.onCreate = { text, _ in try await (text == "A" ? first : second).wait() }
+        try sut.submit(text: "A", imageURLString: nil)
+        try sut.submit(text: "B", imageURLString: nil)
+
+        // A is confirmed first, but the server stamped B earlier, so A stays the newest post.
+        first.complete(.success(TestData.post(id: "srv-A", createdAt: Date(timeIntervalSince1970: 2_000))))
+        await waitUntil { sut.posts.first?.id == "srv-A" }
+        second.complete(.success(TestData.post(id: "srv-B", createdAt: Date(timeIntervalSince1970: 1_500))))
+        await sut.settleCreates()
+
+        #expect(sut.posts.prefix(3).map(\.id) == ["srv-A", "srv-B", "p1"])
+    }
+
+    @Test func survivorsOfARefreshAreOrderedByServerTimestamp() async throws {
+        let sut = await loadedSUT()
+        let first = Suspended<Post>()
+        let second = Suspended<Post>()
+        let refreshPage = Suspended<FeedPage>()
+        repo.onCreate = { text, _ in try await (text == "A" ? first : second).wait() }
+        repo.onFeed = { _, _ in try await refreshPage.wait() }
+        try sut.submit(text: "A", imageURLString: nil)
+        try sut.submit(text: "B", imageURLString: nil)
+
+        async let refresh: Void = sut.refresh()
+        await waitUntil { sut.isRefreshing }
+        first.complete(.success(TestData.post(id: "srv-A", createdAt: Date(timeIntervalSince1970: 2_000))))
+        await waitUntil { sut.posts.first?.id == "srv-A" }
+        second.complete(.success(TestData.post(id: "srv-B", createdAt: Date(timeIntervalSince1970: 1_500))))
+        await sut.settleCreates()
+        refreshPage.complete(.success(TestData.page(1...10, next: "c1")))
+        await refresh
+
+        #expect(sut.posts.prefix(3).map(\.id) == ["srv-A", "srv-B", "p1"])
+    }
+
     @Test func raceBookkeepingFromEarlierLoadsDoesNotLeakIntoALaterRefresh() async throws {
         let sut = await loadedSUT()
         repo.onCreate = { _, _ in TestData.post(id: "srv-1", text: "hi") }

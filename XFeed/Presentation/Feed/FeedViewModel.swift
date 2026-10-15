@@ -106,12 +106,14 @@ final class FeedViewModel {
             let page = try await loadFeed(cursor: nil)
             guard token == loadEpoch else { return }
             let serverIDs = Set(page.posts.map(\.id))
-            // Posts created during this load are newer than the page; keep them on top, newest first, in their
+            // Posts created during this load are missing from the page. Place them by server timestamp, in their
             // current form (a Like may have been applied since they were created).
-            let survivors = createdDuringLoad.reversed()
+            let survivors = createdDuringLoad
                 .filter { !serverIDs.contains($0.id) }
                 .map { created in posts.first { $0.id == created.id } ?? created }
-            posts = survivors + reconcile(page.posts)
+            var refreshed = reconcile(page.posts)
+            for survivor in survivors { Self.insertByServerTime(survivor, into: &refreshed) }
+            posts = refreshed
             apply(page)
             phase = .loaded
         } catch {
@@ -140,6 +142,12 @@ final class FeedViewModel {
             guard token == loadEpoch else { return }
             loadMore = .failed
         }
+    }
+
+    /// The Feed is ordered newest first by the server's `createdAt`. On a tie the newer arrival goes on top.
+    private static func insertByServerTime(_ post: Post, into list: inout [Post]) {
+        let index = list.firstIndex { $0.createdAt <= post.createdAt } ?? list.endIndex
+        list.insert(post, at: index)
     }
 
     private func apply(_ page: FeedPage) {
@@ -260,7 +268,7 @@ final class FeedViewModel {
                     text: pending.text, imageURLString: pending.imageURL?.absoluteString)
                 pendingPosts.removeAll { $0.id == id }
                 if isLoading { createdDuringLoad.append(post) }
-                if !posts.contains(where: { $0.id == post.id }) { posts.insert(post, at: 0) }
+                if !posts.contains(where: { $0.id == post.id }) { Self.insertByServerTime(post, into: &posts) }
             } catch {
                 guard let index = pendingPosts.firstIndex(where: { $0.id == id }) else { return }
                 pendingPosts[index].status = .failed(FeedError(error))
